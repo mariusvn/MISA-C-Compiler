@@ -604,7 +604,12 @@ static AstNode *parse_decl(Parser *p, int allow_func_def) {
 				tp = tp->next;
 			}
 			Symbol *sym = symtab_define(p->symtab, name, SYM_FUNC, full);
-			sym->func_label = strdup(name);
+			if (name[0] == '_') {
+				sym->func_label = strdup(name);
+			} else {
+				sym->func_label = (char *)malloc(strlen(name) + 2);
+				sprintf(sym->func_label, "%s_", name);
+			}
 			symtab_push(p->symtab);
 			AstList *pl = n->u.func.params;
 			while (pl) {
@@ -634,7 +639,12 @@ static AstNode *parse_decl(Parser *p, int allow_func_def) {
 			n->u.func.is_static = is_static;
 			n->u.func.is_extern = is_extern;
 			Symbol *sym = symtab_define(p->symtab, name, SYM_FUNC, full);
-			sym->func_label = strdup(name);
+			if (name[0] == '_') {
+				sym->func_label = strdup(name);
+			} else {
+				sym->func_label = (char *)malloc(strlen(name) + 2);
+				sprintf(sym->func_label, "%s_", name);
+			}
 			if (!match(p, TOK_COMMA)) {
 				expect(p, TOK_SEMICOLON);
 				return n;

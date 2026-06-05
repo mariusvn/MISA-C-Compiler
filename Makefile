@@ -9,7 +9,10 @@ all: $(TARGET)
 $(TARGET): $(SRCS)
 	$(CC) $(CFLAGS) $(SRCS) -o $@
 
+test: $(TARGET)
+	for %f in (tests\*.c) do $(TARGET) %f -o %~dpnf.asm
+
 clean:
 	del /Q $(TARGET) 2>NUL || true
 
-.PHONY: all clean
+.PHONY: all test clean

@@ -1390,9 +1390,14 @@ void codegen_emit(CodeGen *cg, AstNode *unit) {
 					    n->u.func.func_type);
 				}
 				if (!sym->func_label) {
-					char *lbl = (char *)malloc(strlen(n->u.func.name) + 2);
-					sprintf(lbl, "%s_", n->u.func.name);
-					sym->func_label = lbl;
+					const char *fn = n->u.func.name;
+					if (fn[0] == '_') {
+						sym->func_label = strdup(fn);
+					} else {
+						char *lbl = (char *)malloc(strlen(fn) + 2);
+						sprintf(lbl, "%s_", fn);
+						sym->func_label = lbl;
+					}
 				}
 			}
 		}
@@ -1401,7 +1406,11 @@ void codegen_emit(CodeGen *cg, AstNode *unit) {
 
 	
 	fprintf(cg->out, "_start:\n");
-	fprintf(cg->out, "\tcal main\n");
+	{
+		Symbol *msym = symtab_lookup(cg->symtab, "main");
+		const char *mlbl = (msym && msym->func_label) ? msym->func_label : "main_";
+		fprintf(cg->out, "\tcal %s\n", mlbl);
+	}
 	fprintf(cg->out, "\texit\n");
 
 	

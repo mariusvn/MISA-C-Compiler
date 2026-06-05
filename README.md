@@ -6,13 +6,15 @@ While I wrote all the code myself, the Makefile, the github workflows, and the c
 
 ## Building
 
-Requires `clang`. Run:
+Requires `clang`.
+
+Compiling with `make` is easy:
 
 ```
 make
 ```
 
-Or manually:
+Here is the exact clang command I use if you don't have make:
 
 ```
 clang -Iinclude -D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE src/token.c src/ast.c src/type.c src/symtab.c src/lexer.c src/parser.c src/sema.c src/codegen.c src/main.c -o misacc.exe

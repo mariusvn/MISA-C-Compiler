@@ -358,7 +358,13 @@ static void analyze_decl(Sema *s, AstNode *n, int is_global) {
 			Symbol *sym = symtab_lookup(s->symtab, n->u.func.name);
 			if (!sym) {
 				sym = symtab_define(s->symtab, n->u.func.name, SYM_FUNC, n->u.func.func_type);
-				sym->func_label = strdup(n->u.func.name);
+				const char *fn = n->u.func.name;
+				if (fn[0] == '_') {
+					sym->func_label = strdup(fn);
+				} else {
+					sym->func_label = (char *)malloc(strlen(fn) + 2);
+					sprintf(sym->func_label, "%s_", fn);
+				}
 			}
 		}
 		break;
@@ -390,8 +396,14 @@ static void analyze_func(Sema *s, AstNode *n) {
 	if (n->u.func.name) {
 		Symbol *sym = symtab_lookup(s->symtab, n->u.func.name);
 		if (!sym) {
-			sym = symtab_define(s->symtab, n->u.func.name, SYM_FUNC, n->u.func.func_type);
-			sym->func_label = strdup(n->u.func.name);
+			const char *fn = n->u.func.name;
+			sym = symtab_define(s->symtab, fn, SYM_FUNC, n->u.func.func_type);
+			if (fn[0] == '_') {
+				sym->func_label = strdup(fn);
+			} else {
+				sym->func_label = (char *)malloc(strlen(fn) + 2);
+				sprintf(sym->func_label, "%s_", fn);
+			}
 		}
 	}
 
