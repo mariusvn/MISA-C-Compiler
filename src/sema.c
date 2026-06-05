@@ -260,6 +260,13 @@ static Type *analyze_expr(Sema *s, AstNode *n) {
 		break;
 	}
 
+	case AST_INIT_LIST: {
+		AstList *it;
+		for (it = n->u.init_list.items; it; it = it->next)
+			analyze_expr(s, it->node);
+		t = int_type();
+		break;
+	}
 	default:
 		t = int_type();
 	}
@@ -364,6 +371,11 @@ static void analyze_decl(Sema *s, AstNode *n, int is_global) {
 			}
 		}
 		if (n->u.var.init) analyze_expr(s, n->u.var.init);
+		if (n->u.var.var_type && n->u.var.var_type->kind == TY_ARRAY &&
+		    n->u.var.var_type->array_len < 0 &&
+		    n->u.var.init && n->u.var.init->kind == AST_INIT_LIST) {
+			n->u.var.var_type->array_len = ast_list_len(n->u.var.init->u.init_list.items);
+		}
 		break;
 	}
 	case AST_FUNC_DEF:

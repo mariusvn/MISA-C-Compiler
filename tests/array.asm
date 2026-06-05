@@ -84,32 +84,24 @@ __L4:
 
 main_:
 	sub sp, 20
+	mov t0, 1
+	add t1, fp, -16
+	mov ea, t1
+	ste i32t, 0, t0
+	mov t0, 2
+	add t1, fp, -12
+	mov ea, t1
+	ste i32t, 0, t0
+	mov t0, 3
+	add t1, fp, -8
+	mov ea, t1
+	ste i32t, 0, t0
+	mov t0, 3
+	add t1, fp, -4
+	mov ea, t1
+	ste i32t, 0, t0
 	tpa t1, __str_5
 	str u32t, g__greeting, t1
-	mov t0, t1
-	mov t1, 1
-	add t2, fp, -16
-	mov t3, 0
-	mul t3, 4
-	add t2, t3
-	mov ea, t2
-	ste i32t, 0, t1
-	mov t0, t1
-	mov t1, 2
-	add t2, fp, -16
-	mov t3, 1
-	mul t3, 4
-	add t2, t3
-	mov ea, t2
-	ste i32t, 0, t1
-	mov t0, t1
-	mov t1, 3
-	add t2, fp, -16
-	mov t3, 2
-	mul t3, 4
-	add t2, t3
-	mov ea, t2
-	ste i32t, 0, t1
 	mov t0, t1
 	mov t1, 4
 	add t2, fp, -16
@@ -143,4 +135,5 @@ main_:
 
 g__global_x:	emb i32t 100
 g__greeting:	res u32t 1, 0
+g__foo:	emb i8t 0, 1
 __str_5:	emb string "hello"

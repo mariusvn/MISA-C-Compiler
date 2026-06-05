@@ -1056,11 +1056,38 @@ static void cg_stmt(CodeGen *cg, AstNode *n, FrameLayout *fl) {
 	case AST_VAR_DECL: {
 		
 		if (n->u.var.init && n->u.var.name) {
-			int vr = cg_expr(cg, n->u.var.init, fl);
-			cg_cast(cg, n->u.var.init->type, n->u.var.var_type, vr);
-			Symbol *sym = symtab_lookup(cg->symtab, n->u.var.name);
-			if (sym) cg_store_var(cg, sym, fl, vr);
-			cg_free_temp(cg, vr);
+			if (n->u.var.init->kind == AST_INIT_LIST &&
+			    n->u.var.var_type && n->u.var.var_type->kind == TY_ARRAY) {
+				Symbol *sym = symtab_lookup(cg->symtab, n->u.var.name);
+				if (sym) {
+					Type *elem_t = n->u.var.var_type->base;
+					if (!elem_t) elem_t = n->u.var.var_type;
+					const char *elem_misa = type_misa_name(elem_t);
+					int elem_size = type_sizeof(elem_t);
+					if (elem_size <= 0) elem_size = 4;
+					FrameVar *fv = frame_find(fl, n->u.var.name);
+					int base_off = fv ? fv->fp_offset : 0;
+					AstList *items = n->u.var.init->u.init_list.items;
+					int i = 0;
+					while (items) {
+						int vr = cg_expr(cg, items->node, fl);
+						int ar = cg_alloc_temp(cg);
+						emit(cg, "add %s, fp, %d", temp_name(ar), base_off + i * elem_size);
+						emit(cg, "mov ea, %s", temp_name(ar));
+						emit(cg, "ste %s, 0, %s", elem_misa, temp_name(vr));
+						cg_free_temp(cg, vr);
+						cg_free_temp(cg, ar);
+						items = items->next;
+						i++;
+					}
+				}
+			} else {
+				int vr = cg_expr(cg, n->u.var.init, fl);
+				cg_cast(cg, n->u.var.init->type, n->u.var.var_type, vr);
+				Symbol *sym = symtab_lookup(cg->symtab, n->u.var.name);
+				if (sym) cg_store_var(cg, sym, fl, vr);
+				cg_free_temp(cg, vr);
+			}
 		}
 		break;
 	}
@@ -1438,9 +1465,38 @@ static void cg_global_var(CodeGen *cg, AstNode *n) {
 		fprintf(cg->out, "%s:\temb string \"%s\"\n", lbl,
 		    n->u.var.init->u.str_lit.value);
 	} else if (t->kind == TY_ARRAY) {
-		int count = t->array_len > 0 ? t->array_len : 1;
-		fprintf(cg->out, "%s:\tres %s %d, 0\n", lbl,
-		    type_misa_name(t->base ? t->base : t), count);
+		if (n->u.var.init && n->u.var.init->kind == AST_INIT_LIST) {
+			Type *elem_t = t->base ? t->base : t;
+			fprintf(cg->out, "%s:\temb %s", lbl, type_misa_name(elem_t));
+			AstList *items = n->u.var.init->u.init_list.items;
+			int first = 1;
+			while (items) {
+				AstNode *elem = items->node;
+				if (!first) fprintf(cg->out, ",");
+				if (elem->kind == AST_INT_LIT || elem->kind == AST_CHAR_LIT) {
+					fprintf(cg->out, " %lld", elem->u.int_lit.value);
+				} else if (elem->kind == AST_FLOAT_LIT) {
+					fprintf(cg->out, " %.10g", elem->u.float_lit.value);
+				} else if (elem->kind == AST_UNARY_PRE && elem->u.unary.op == TOK_MINUS &&
+				           elem->u.unary.operand &&
+				           elem->u.unary.operand->kind == AST_INT_LIT) {
+					fprintf(cg->out, " %lld", -elem->u.unary.operand->u.int_lit.value);
+				} else if (elem->kind == AST_UNARY_PRE && elem->u.unary.op == TOK_MINUS &&
+				           elem->u.unary.operand &&
+				           elem->u.unary.operand->kind == AST_FLOAT_LIT) {
+					fprintf(cg->out, " %.10g", -elem->u.unary.operand->u.float_lit.value);
+				} else {
+					fprintf(cg->out, " 0");
+				}
+				first = 0;
+				items = items->next;
+			}
+			fprintf(cg->out, "\n");
+		} else {
+			int count = t->array_len > 0 ? t->array_len : 1;
+			fprintf(cg->out, "%s:\tres %s %d, 0\n", lbl,
+			    type_misa_name(t->base ? t->base : t), count);
+		}
 	} else {
 		fprintf(cg->out, "%s:\tres %s 1, 0\n", lbl, type_misa_name(t));
 	}

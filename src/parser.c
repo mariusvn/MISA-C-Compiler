@@ -670,12 +670,17 @@ static AstNode *parse_decl(Parser *p, int allow_func_def) {
 		n->u.var.init      = NULL;
 		if (match(p, TOK_ASSIGN)) {
 			if (check(p, TOK_LBRACE)) {
-				int depth = 0;
-				do {
-					if (check(p, TOK_LBRACE)) depth++;
-					else if (check(p, TOK_RBRACE)) depth--;
-					advance(p);
-				} while (depth > 0 && !check(p, TOK_EOF));
+				int il_line = p->cur.line;
+				advance(p);
+				AstNode *il = ast_new(AST_INIT_LIST, il_line);
+				il->u.init_list.items = NULL;
+				while (!check(p, TOK_RBRACE) && !check(p, TOK_EOF)) {
+					AstNode *elem = parse_assign_expr(p);
+					if (elem) il->u.init_list.items = ast_list_append(il->u.init_list.items, elem);
+					if (!match(p, TOK_COMMA)) break;
+				}
+				expect(p, TOK_RBRACE);
+				n->u.var.init = il;
 			} else {
 				n->u.var.init = parse_assign_expr(p);
 			}

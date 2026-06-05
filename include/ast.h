@@ -57,7 +57,10 @@ typedef enum {
 	AST_FLOAT_LIT,
 	AST_CHAR_LIT,
 	AST_STRING_LIT,
-	AST_IDENT
+	AST_IDENT,
+
+	/* Initializer list: { expr, expr, ... } */
+	AST_INIT_LIST
 } AstKind;
 
 typedef struct AstNode AstNode;
@@ -272,6 +275,11 @@ struct AstNode {
 		struct {
 			char *name;
 		} ident;
+
+		/* AST_INIT_LIST */
+		struct {
+			AstList *items;
+		} init_list;
 	} u;
 };
 

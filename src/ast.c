@@ -147,6 +147,9 @@ void ast_free(AstNode *n) {
 	case AST_IDENT:
 		free(n->u.ident.name);
 		break;
+	case AST_INIT_LIST:
+		ast_list_free(n->u.init_list.items);
+		break;
 	default:
 		break;
 	}
