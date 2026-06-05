@@ -52,6 +52,7 @@ typedef struct Symbol {
 
 	/* SYM_VAR: where is the variable? */
 	int           is_global;    /* 1 = global, 0 = local */
+	int           is_extern;    /* 1 = extern (label is exact C name, no g__ prefix) */
 	int           is_param_ptr; /* 1 = struct/union param passed as pointer */
 	int           fp_offset;    /* local: byte offset from fp (negative) */
 	char         *asm_label;    /* global: assembly label name */

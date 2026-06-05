@@ -316,6 +316,15 @@ static Type *parse_declarator(Parser *p, Type *base, char **out_name) {
 	} else if (check(p, TOK_IDENT)) {
 		name = strdup(p->cur.text);
 		advance(p);
+		while (check(p, TOK_DOT) && p->peek.type == TOK_IDENT) {
+			advance(p);
+			size_t dotlen = strlen(name) + 1 + strlen(p->cur.text) + 1;
+			char *dotted = (char *)malloc(dotlen);
+			sprintf(dotted, "%s.%s", name, p->cur.text);
+			free(name);
+			name = dotted;
+			advance(p);
+		}
 	}
 
 	if (out_name) *out_name = name;
@@ -865,6 +874,19 @@ static AstNode *parse_postfix(Parser *p) {
 		} else if (check(p, TOK_DOT)) {
 			advance(p);
 			if (!check(p, TOK_IDENT)) { parser_error(p, "expected member name"); break; }
+			if (base->kind == AST_IDENT) {
+				size_t dotlen = strlen(base->u.ident.name) + 1 + strlen(p->cur.text) + 1;
+				char *dotted = (char *)malloc(dotlen);
+				sprintf(dotted, "%s.%s", base->u.ident.name, p->cur.text);
+				Symbol *dsym = symtab_lookup(p->symtab, dotted);
+				if (dsym) {
+					free(base->u.ident.name);
+					base->u.ident.name = dotted;
+					advance(p);
+					continue;
+				}
+				free(dotted);
+			}
 			AstNode *n = ast_new(AST_MEMBER, line);
 			n->u.member.object      = base;
 			n->u.member.member_name = strdup(p->cur.text);

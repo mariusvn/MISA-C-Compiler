@@ -23,15 +23,85 @@ clang -Iinclude -D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE src/token.
 ## Usage
 
 ```
-misacc.exe <input.c> [-o output.misa]
+misacc.exe <input.c> [-o output.misa] [--doc|-gd]
 ```
 
 - `<input.c>` — C89 source file to compile (required)
 - `-o output.misa` — write output to a file instead of stdout
+- `--doc`/`-gd` - generate doc comments in the output (See: [Doc Comment Format](Mnemonimov%20Manual/Doc%20Comment%20Format.md))
 
 **Examples:**
 
 ```
 misacc.exe program.c -o program.misa
 misacc.exe program.c > program.misa
+```
+
+## Special C Syntax
+In order to support complete interop between MISA and C, some new syntax had to be introduced for various features, here are those features, and the C syntax to utilize them:
+
+- Using MISA structures
+```c
+#include "player.asm"
+
+extern struct Player player; // the name of the struct is the same as the variable name UNLESS you have two variables with the exact same structure, then you can just use the same type name, like `Player <var_name>`
+/* in MISA:
+player:
+    .x: emb u32t 0
+    .y: emb u32t 0
+second_player:
+    .x: emb u32t 0
+    .y: emb u32t 0
+*/
+
+int main(void) {
+    player.x = 10;
+    print_int(player.y); // 0
+    return player.x;
+}
+```
+
+- Using local labels (as functions)
+```c
+#include "foo.asm"
+
+extern void foo.someFunc(); // foo acts as a "namespace" for the local label
+/* in MISA:
+foo:
+  .someFunc:
+    ret
+*/
+
+int main(void) {
+    foo.someFunc();
+    return 0;
+}
+```
+
+- Using local labels (as variables)
+```c
+#include "foo.asm"
+
+extern unsigned int foo.someVar; // foo acts as a "namespace" for the local label
+/*
+foo:
+    someVar: emb u32t 10
+*/
+
+int main(void) {
+    return foo.someVar;
+}
+```
+
+> [!WARNING]
+> Local functions and local variables are difficult to properly differentiate when parsing, so they are not checked to ensure they are actually a variable or a function during parsing, this made lead to undefined behavior!
+```c
+#include "foo.asm"
+
+extern void foo.someVar(); // even though this is a variable, it can be treated as a function by the compiler
+
+int main(void) {
+    foo.someVar(); // this will cause a call instruction to foo.someVar and break your program, BEWARE!
+    return 0;
+}
 ```

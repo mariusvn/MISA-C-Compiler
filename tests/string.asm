@@ -5,12 +5,10 @@ _start:
 main_:
 	sub sp, 4
 	tpa t0, __str_0
-	add t14, fp, -4
-	mov ea, t14
-	ste u32t, 0, t0
-	add t14, fp, -4
-	mov ea, t14
-	lde u32t, t1, 0
+	mov ea, fp
+	ste u32t, -4, t0
+	mov ea, fp
+	lde u32t, t1, -4
 	mov a0, t1
 	tpr a0
 	syscall SYS_PRINT_STRING

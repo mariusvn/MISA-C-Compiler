@@ -33,14 +33,12 @@ main_:
 	ste u8t, 0, t1
 	mov t0, t1
 	tpa t0, g____code
-	add t14, fp, -4
-	mov ea, t14
-	ste u32t, 0, t0
+	mov ea, fp
+	ste u32t, -4, t0
 	mov t1, 42
 	mov a0, t1
-	add t14, fp, -4
-	mov ea, t14
-	lde u32t, t1, 0
+	mov ea, fp
+	lde u32t, t1, -4
 	tpr t1
 	sub t1, @__ical+
 @__ical:

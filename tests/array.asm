@@ -4,99 +4,80 @@ _start:
 
 max_:
 	sub sp, 8
-	add t14, fp, -4
-	mov ea, t14
-	ste i32t, 0, a0
-	add t14, fp, -8
-	mov ea, t14
-	ste i32t, 0, a1
-	add t14, fp, -4
-	mov ea, t14
-	lde i32t, t1, 0
-	add t14, fp, -8
-	mov ea, t14
-	lde i32t, t2, 0
+	mov ea, fp
+	ste i32t, -4, a0
+	mov ea, fp
+	ste i32t, -8, a1
+	mov ea, fp
+	lde i32t, t1, -4
+	mov ea, fp
+	lde i32t, t2, -8
 	cmp gt, t1, t2
 	sel t0, 1, 0
 	cmp eq, t0, zr
 	jtr __L0
-	add t14, fp, -4
-	mov ea, t14
-	lde i32t, t0, 0
+	mov ea, fp
+	lde i32t, t0, -4
 	mov a0, t0
 	add sp, 8
 	ret
 __L0:
 __L1:
-	add t14, fp, -8
-	mov ea, t14
-	lde i32t, t0, 0
+	mov ea, fp
+	lde i32t, t0, -8
 	mov a0, t0
 	add sp, 8
 	ret
 
 sum_array_:
 	sub sp, 16
-	add t14, fp, -4
-	mov ea, t14
-	ste u32t, 0, a0
-	add t14, fp, -8
-	mov ea, t14
-	ste i32t, 0, a1
+	mov ea, fp
+	ste u32t, -4, a0
+	mov ea, fp
+	ste i32t, -8, a1
 	mov t1, 0
-	add t14, fp, -16
-	mov ea, t14
-	ste i32t, 0, t1
+	mov ea, fp
+	ste i32t, -16, t1
 	mov t0, t1
 	mov t1, 0
-	add t14, fp, -12
-	mov ea, t14
-	ste i32t, 0, t1
+	mov ea, fp
+	ste i32t, -12, t1
 	mov t0, t1
 __L2:
-	add t14, fp, -12
-	mov ea, t14
-	lde i32t, t1, 0
-	add t14, fp, -8
-	mov ea, t14
-	lde i32t, t2, 0
+	mov ea, fp
+	lde i32t, t1, -12
+	mov ea, fp
+	lde i32t, t2, -8
 	cmp lt, t1, t2
 	sel t0, 1, 0
 	cmp eq, t0, zr
 	jtr __L4
-	add t14, fp, -16
-	mov ea, t14
-	lde i32t, t2, 0
-	add t14, fp, -4
-	mov ea, t14
-	lde u32t, t4, 0
-	add t14, fp, -12
-	mov ea, t14
-	lde i32t, t5, 0
+	mov ea, fp
+	lde i32t, t2, -16
+	mov ea, fp
+	lde u32t, t4, -4
+	mov ea, fp
+	lde i32t, t5, -12
 	mul t5, 4
 	add t4, t5
 	mov ea, t4
 	lde i32t, t3, 0
 	add t1, t2, t3
-	add t14, fp, -16
-	mov ea, t14
-	ste i32t, 0, t1
+	mov ea, fp
+	ste i32t, -16, t1
 	mov t0, t1
 __L3:
-	add t14, fp, -12
-	mov ea, t14
-	lde i32t, t2, 0
+	mov ea, fp
+	lde i32t, t2, -12
 	mov t3, 1
 	add t1, t2, t3
-	add t14, fp, -12
-	mov ea, t14
-	ste i32t, 0, t1
+	mov ea, fp
+	ste i32t, -12, t1
 	mov t0, t1
 	jmp __L2
 __L4:
-	add t14, fp, -16
-	mov ea, t14
-	lde i32t, t0, 0
+	mov ea, fp
+	lde i32t, t0, -16
 	mov a0, t0
 	add sp, 16
 	ret
@@ -146,13 +127,11 @@ main_:
 	cal sum_array_
 	mov t1, a0
 	pop t0
-	add t14, fp, -20
-	mov ea, t14
-	ste i32t, 0, t1
+	mov ea, fp
+	ste i32t, -20, t1
 	mov t0, t1
-	add t14, fp, -20
-	mov ea, t14
-	lde i32t, t1, 0
+	mov ea, fp
+	lde i32t, t1, -20
 	lod i32t, t2, g__global_x
 	mov a1, t2
 	mov a0, t1

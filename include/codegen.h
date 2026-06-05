@@ -6,9 +6,9 @@
 #include "symtab.h"
 
 /*
- * Code generator — emits MISA assembly to an output FILE.
+ * Code generator — emits MISA assembly to an output file.
  *
- * Register allocation strategy:
+ * Register allocation process:
  *   - t0..t14  : temporaries for expression evaluation
  *   - a0..a15  : function arguments / return value
  *   - s*       : not used (all locals live on the stack)
@@ -52,6 +52,14 @@ typedef struct {
 
 	/* Temp register allocator */
 	int      temp_used[15];   /* t0..t14 */
+
+	/* ASM type map: maps label names to MISA type strings */
+	struct AsmTypeEntry {
+		char *label;
+		char *misa_type;
+	} *asm_type_map;
+	int asm_type_count;
+	int asm_type_cap;
 } CodeGen;
 
 void codegen_init(CodeGen *cg, FILE *out, SymTab *st);

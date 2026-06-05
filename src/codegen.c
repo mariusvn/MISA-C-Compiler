@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <ctype.h>
 #include "codegen.h"
 
 typedef struct {
@@ -37,6 +38,79 @@ static const BuiltinInfo *builtin_lookup(BuiltinId id) {
 	for (i = 0; builtin_table[i].id != BUILTIN_NONE; i++)
 		if (builtin_table[i].id == id) return &builtin_table[i];
 	return NULL;
+}
+
+static void asm_type_add(CodeGen *cg, const char *label, const char *misa_type) {
+	if (cg->asm_type_count >= cg->asm_type_cap) {
+		cg->asm_type_cap = cg->asm_type_cap ? cg->asm_type_cap * 2 : 16;
+		cg->asm_type_map = (struct AsmTypeEntry *)realloc(cg->asm_type_map,
+		    cg->asm_type_cap * sizeof(*cg->asm_type_map));
+	}
+	cg->asm_type_map[cg->asm_type_count].label     = strdup(label);
+	cg->asm_type_map[cg->asm_type_count].misa_type = strdup(misa_type);
+	cg->asm_type_count++;
+}
+
+static const char *asm_type_lookup(CodeGen *cg, const char *label) {
+	int i;
+	for (i = 0; i < cg->asm_type_count; i++)
+		if (!strcmp(cg->asm_type_map[i].label, label))
+			return cg->asm_type_map[i].misa_type;
+	return NULL;
+}
+
+static void parse_asm_types(CodeGen *cg, const char *path) {
+	FILE *f = fopen(path, "r");
+	if (!f) return;
+	char line[1024];
+	char global_label[256];
+	global_label[0] = '\0';
+	while (fgets(line, sizeof(line), f)) {
+		char *p = line;
+		while (*p == ' ' || *p == '\t') p++;
+		if (*p == '#' || *p == '\0' || *p == '\n' || *p == '\r') continue;
+		if (*p == '@') continue;
+		int is_local = (*p == '.');
+		if (is_local) p++;
+		char ident[256];
+		int ident_len = 0;
+		while (*p && (isalnum((unsigned char)*p) || *p == '_') && ident_len < 255)
+			ident[ident_len++] = *p++;
+		ident[ident_len] = '\0';
+		if (ident_len == 0) continue;
+		while (*p == ' ' || *p == '\t') p++;
+		if (*p != ':') continue;
+		p++;
+		while (*p == ' ' || *p == '\t') p++;
+		if (strncmp(p, "emb", 3) != 0 || isalnum((unsigned char)p[3]) || p[3] == '_') {
+			if (!is_local) {
+				strncpy(global_label, ident, 255);
+				global_label[255] = '\0';
+			}
+			continue;
+		}
+		p += 3;
+		while (*p == ' ' || *p == '\t') p++;
+		char type_name[32];
+		int type_len = 0;
+		while (*p && !isspace((unsigned char)*p) && type_len < 31)
+			type_name[type_len++] = *p++;
+		type_name[type_len] = '\0';
+		if (type_len == 0) continue;
+		char full_label[512];
+		if (is_local && global_label[0]) {
+			sprintf(full_label, "%s.%s", global_label, ident);
+		} else {
+			strncpy(full_label, ident, 511);
+			full_label[511] = '\0';
+			if (!is_local) {
+				strncpy(global_label, ident, 255);
+				global_label[255] = '\0';
+			}
+		}
+		asm_type_add(cg, full_label, type_name);
+	}
+	fclose(f);
 }
 
 static char *cg_new_label(CodeGen *cg) {
@@ -226,10 +300,8 @@ static void cg_load_var(CodeGen *cg, Symbol *sym, FrameLayout *fl, int dest_reg)
 	} else {
 		FrameVar *fv = frame_find(fl, sym->name);
 		int off = fv ? fv->fp_offset : sym->fp_offset;
-		int scratch = (dest_reg == 14) ? 13 : 14;
-		emit(cg, "add %s, fp, %d", temp_name(scratch), off);
-		emit(cg, "mov ea, %s", temp_name(scratch));
-		emit(cg, "lde %s, %s, 0", tn, dn);
+		emit(cg, "mov ea, fp");
+		emit(cg, "lde %s, %s, %d", tn, dn, off);
 	}
 }
 
@@ -242,11 +314,8 @@ static void cg_store_var(CodeGen *cg, Symbol *sym, FrameLayout *fl, int src_reg)
 	} else {
 		FrameVar *fv = frame_find(fl, sym->name);
 		int off = fv ? fv->fp_offset : sym->fp_offset;
-		int scratch = 14;
-		if (src_reg == 14) scratch = 13;
-		emit(cg, "add %s, fp, %d", temp_name(scratch), off);
-		emit(cg, "mov ea, %s", temp_name(scratch));
-		emit(cg, "ste %s, 0, %s", tn, sn);
+		emit(cg, "mov ea, fp");
+		emit(cg, "ste %s, %d, %s", tn, off, sn);
 	}
 }
 
@@ -338,6 +407,15 @@ static int cg_lvalue_addr(CodeGen *cg, AstNode *n, FrameLayout *fl) {
 		break;
 	}
 	case AST_MEMBER: {
+		if (n->u.member.object->kind == AST_IDENT) {
+			Symbol *esym = symtab_lookup(cg->symtab, n->u.member.object->u.ident.name);
+			if (esym && esym->is_global && esym->is_extern && esym->asm_label) {
+				char local_label[256];
+				sprintf(local_label, "%s.%s", esym->asm_label, n->u.member.member_name);
+				emit(cg, "tpa %s, %s", rn, local_label);
+				break;
+			}
+		}
 		int base_r = cg_lvalue_addr(cg, n->u.member.object, fl);
 		Type *st = n->u.member.object->type;
 		int off = 0;
@@ -712,22 +790,35 @@ static int cg_expr(CodeGen *cg, AstNode *n, FrameLayout *fl) {
 			cg_free_temp(cg, base_r);
 			cg_free_temp(cg, idx_r);
 		} else if (lhs->kind == AST_MEMBER) {
-			int obj_r = cg_lvalue_addr(cg, lhs->u.member.object, fl);
-			
-			Type *st = lhs->u.member.object->type;
-			int off = 0;
-			if (st) {
-				TypeMember *m = st->members;
-				while (m) {
-					if (m->name && !strcmp(m->name, lhs->u.member.member_name)) {
-						off = m->offset; break;
-					}
-					m = m->next;
+			int done = 0;
+			if (lhs->u.member.object->kind == AST_IDENT) {
+				Symbol *esym = symtab_lookup(cg->symtab, lhs->u.member.object->u.ident.name);
+				if (esym && esym->is_global && esym->is_extern && esym->asm_label) {
+					char local_label[256];
+					sprintf(local_label, "%s.%s", esym->asm_label, lhs->u.member.member_name);
+					const char *field_tn = asm_type_lookup(cg, local_label);
+					if (!field_tn) field_tn = tn;
+					emit(cg, "str %s, %s, %s", field_tn, local_label, temp_name(val_r));
+					done = 1;
 				}
 			}
-			emit(cg, "mov ea, %s", temp_name(obj_r));
-			emit(cg, "ste %s, %d, %s", tn, off, temp_name(val_r));
-			cg_free_temp(cg, obj_r);
+			if (!done) {
+				int obj_r = cg_lvalue_addr(cg, lhs->u.member.object, fl);
+				Type *st = lhs->u.member.object->type;
+				int off = 0;
+				if (st) {
+					TypeMember *m = st->members;
+					while (m) {
+						if (m->name && !strcmp(m->name, lhs->u.member.member_name)) {
+							off = m->offset; break;
+						}
+						m = m->next;
+					}
+				}
+				emit(cg, "mov ea, %s", temp_name(obj_r));
+				emit(cg, "ste %s, %d, %s", tn, off, temp_name(val_r));
+				cg_free_temp(cg, obj_r);
+			}
 		} else if (lhs->kind == AST_PTR_MEMBER) {
 			int obj_r = cg_expr(cg, lhs->u.member.object, fl);
 			Type *st = lhs->u.member.object->type;
@@ -813,6 +904,17 @@ static int cg_expr(CodeGen *cg, AstNode *n, FrameLayout *fl) {
 	}
 
 	case AST_MEMBER: {
+		if (n->u.member.object->kind == AST_IDENT) {
+			Symbol *esym = symtab_lookup(cg->symtab, n->u.member.object->u.ident.name);
+			if (esym && esym->is_global && esym->is_extern && esym->asm_label) {
+				char local_label[256];
+				sprintf(local_label, "%s.%s", esym->asm_label, n->u.member.member_name);
+				const char *tn = asm_type_lookup(cg, local_label);
+				if (!tn) tn = n->type ? type_misa_name(n->type) : "i32t";
+				emit(cg, "lod %s, %s, %s", tn, rn, local_label);
+				break;
+			}
+		}
 		int obj_r = cg_lvalue_addr(cg, n->u.member.object, fl);
 		Type *st  = n->u.member.object->type;
 		int off   = 0;
@@ -1274,9 +1376,8 @@ static void cg_func(CodeGen *cg, AstNode *n) {
 				
 				const char *tn = sym->is_param_ptr ? "u32t" :
 				    (pn->u.var.var_type ? type_misa_name(pn->u.var.var_type) : "i32t");
-				emit(cg, "add %s, fp, %d", temp_name(scratch), off);
-				emit(cg, "mov ea, %s", temp_name(scratch));
-				emit(cg, "ste %s, 0, %s", tn, arg_name(ai));
+				emit(cg, "mov ea, fp");
+				emit(cg, "ste %s, %d, %s", tn, off, arg_name(ai));
 			}
 		}
 		ai++;
@@ -1356,24 +1457,37 @@ void codegen_free(CodeGen *cg) {
 	for (i = 0; i < cg->str_count; i++) free(cg->strings[i].value);
 	free(cg->strings);
 	free(cg->func_end_label);
+	for (i = 0; i < cg->asm_type_count; i++) {
+		free(cg->asm_type_map[i].label);
+		free(cg->asm_type_map[i].misa_type);
+	}
+	free(cg->asm_type_map);
 }
 
 void codegen_emit(CodeGen *cg, AstNode *unit) {
 	if (!unit || unit->kind != AST_TRANSLATION_UNIT) return;
 
-	
+	int i;
+	for (i = 0; i < unit->u.unit.asm_include_count; i++)
+		parse_asm_types(cg, unit->u.unit.asm_includes[i]);
+
 	AstList *it = unit->u.unit.decls;
 	while (it) {
 		AstNode *n = it->node;
-		if (n && n->kind == AST_VAR_DECL && n->u.var.name && !n->u.var.is_extern) {
-			char lbl[128];
+		if (n && n->kind == AST_VAR_DECL && n->u.var.name) {
 			Symbol *sym;
-			sprintf(lbl, "g__%s", n->u.var.name);
 			sym = symtab_lookup(cg->symtab, n->u.var.name);
 			if (!sym) sym = symtab_define(cg->symtab, n->u.var.name, SYM_VAR,
 			    n->u.var.var_type);
 			sym->is_global = 1;
-			if (!sym->asm_label) sym->asm_label = strdup(lbl);
+			if (n->u.var.is_extern) {
+				sym->is_extern = 1;
+				if (!sym->asm_label) sym->asm_label = strdup(n->u.var.name);
+			} else {
+				char lbl[128];
+				sprintf(lbl, "g__%s", n->u.var.name);
+				if (!sym->asm_label) sym->asm_label = strdup(lbl);
+			}
 		}
 		it = it->next;
 	}
@@ -1435,7 +1549,6 @@ void codegen_emit(CodeGen *cg, AstNode *unit) {
 	}
 
 	
-	int i;
 	for (i = 0; i < cg->str_count; i++) {
 		char lbl[32];
 		sprintf(lbl, "__str_%d", cg->strings[i].id);

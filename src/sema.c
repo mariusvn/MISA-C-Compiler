@@ -211,10 +211,20 @@ static Type *analyze_expr(Sema *s, AstNode *n) {
 				m = m->next;
 			}
 			if (!t) {
-				char buf[128];
-				sprintf(buf, "no member '%s' in struct/union", n->u.member.member_name);
-				sema_error(s, n, buf);
+				int is_extern_base = 0;
+				if (n->u.member.object->kind == AST_IDENT) {
+					Symbol *sym = symtab_lookup(s->symtab,
+					    n->u.member.object->u.ident.name);
+					if (sym && sym->is_extern) is_extern_base = 1;
+				}
+				if (!is_extern_base) {
+					char buf[128];
+					sprintf(buf, "no member '%s' in struct/union",
+					    n->u.member.member_name);
+					sema_error(s, n, buf);
+				}
 				t = int_type();
+				n->is_lvalue = 1;
 			}
 		} else {
 			sema_error(s, n, "member access on non-struct");
@@ -346,7 +356,13 @@ static void analyze_decl(Sema *s, AstNode *n, int is_global) {
 		if (!sym && n->u.var.name) {
 			sym = symtab_define(s->symtab, n->u.var.name, SYM_VAR, n->u.var.var_type);
 		}
-		if (sym) sym->is_global = is_global;
+		if (sym) {
+			sym->is_global = is_global;
+			if (n->u.var.is_extern) {
+				sym->is_extern = 1;
+				if (!sym->asm_label) sym->asm_label = strdup(n->u.var.name);
+			}
+		}
 		if (n->u.var.init) analyze_expr(s, n->u.var.init);
 		break;
 	}

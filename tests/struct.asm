@@ -4,12 +4,10 @@ _start:
 
 dot_:
 	sub sp, 8
-	add t14, fp, -4
-	mov ea, t14
-	ste u32t, 0, a0
-	add t14, fp, -8
-	mov ea, t14
-	ste u32t, 0, a1
+	mov ea, fp
+	ste u32t, -4, a0
+	mov ea, fp
+	ste u32t, -8, a1
 	add t3, fp, -4
 	mov ea, t3
 	lde u32t, t3, 0
@@ -39,12 +37,10 @@ dot_:
 
 classify_:
 	sub sp, 4
-	add t14, fp, -4
-	mov ea, t14
-	ste i32t, 0, a0
-	add t14, fp, -4
-	mov ea, t14
-	lde i32t, t0, 0
+	mov ea, fp
+	ste i32t, -4, a0
+	mov ea, fp
+	lde i32t, t0, -4
 	mov t14, t0
 	cmp eq, t14, 0
 	jtr __L2
