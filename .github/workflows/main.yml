@@ -80,6 +80,19 @@ jobs:
       contents: write
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo 'commits<<EOF' >> $GITHUB_OUTPUT
+          git log --no-merges --pretty=format:'- %s' ${{ github.event.before }}...${{ github.sha }} >> $GITHUB_OUTPUT
+          echo '' >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
@@ -117,6 +130,10 @@ jobs:
 
             ---
 
+            ## Changelog
+
+            ${{ steps.changelog.outputs.commits }}
+
             ## Usage
 
             ```
@@ -127,6 +144,7 @@ jobs:
             |---|---|
             | `<input.c>` | C89 source file to compile (required) |
             | `-o output.misa` | Write output to a file instead of stdout |
+            | `--doc`/`-gd` | Generate doc comments in output (See: [Doc Comment Format](https://github.com/Nadelio/MISA-C-Compiler/blob/main/Mnemonimov%20Manual/Doc%20Comment%20Format.md)) |
 
             **Examples:**
             ```
@@ -148,8 +166,12 @@ jobs:
 
             **Requirements:** `clang`
 
-            **Using Make (Linux/macOS):**
-            ```sh
+            **Using CMake:**
+            
+            ```
+            mkdir build
+            cd build
+            cmake ..
             make
             ```
 
