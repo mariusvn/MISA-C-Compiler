@@ -8,11 +8,19 @@ While I wrote all the code myself, the Makefile, the github workflows, and the c
 
 Requires `clang`.
 
-Compiling with `make` is easy:
+Compiling with `CMake` is easy:
 
 ```
+mkdir build
+cd build
+cmake ..
 make
 ```
+
+If you need any other platform than Makefile, please use `cmake -G "<generator-name>" ..`.
+The generators available are listed [here](https://cmake.org/cmake/help/latest/manual/cmake-generators.7.html).
+*example*: `cmake -G "Visual Studio 17 2022" ..`
+
 
 Here is the exact clang command I use if you don't have make:
 
