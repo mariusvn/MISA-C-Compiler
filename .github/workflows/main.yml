@@ -1,0 +1,178 @@
+name: Build
+
+on:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install LLVM / Clang
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "18"
+
+      - name: Compile with Clang
+        run: |
+          clang -Iinclude -D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE -Wall `
+            src/token.c src/ast.c src/type.c src/symtab.c `
+            src/lexer.c src/parser.c src/sema.c src/codegen.c src/main.c `
+            -o misacc.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: misacc-windows
+          path: misacc.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: sudo apt-get update && sudo apt-get install -y clang
+
+      - name: Compile with Clang
+        run: |
+          clang -Iinclude -Wall \
+            src/token.c src/ast.c src/type.c src/symtab.c \
+            src/lexer.c src/parser.c src/sema.c src/codegen.c src/main.c \
+            -o misacc
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: misacc-linux
+          path: misacc
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Compile with Clang
+        run: |
+          clang -Iinclude -Wall \
+            src/token.c src/ast.c src/type.c src/symtab.c \
+            src/lexer.c src/parser.c src/sema.c src/codegen.c src/main.c \
+            -o misacc
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: misacc-macos
+          path: misacc
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [ build-windows, build-linux, build-macos ]
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: misacc-windows
+          path: artifacts/windows
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: misacc-linux
+          path: artifacts/linux
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: misacc-macos
+          path: artifacts/macos
+
+      - name: Rename artifacts
+        run: |
+          mv artifacts/windows/misacc.exe artifacts/misacc-windows.exe
+          mv artifacts/linux/misacc       artifacts/misacc-linux
+          mv artifacts/macos/misacc       artifacts/misacc-macos
+          chmod +x artifacts/misacc-linux artifacts/misacc-macos
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "Build #${{ github.run_number }}"
+          body: |
+            ## MISA C Compiler — Build #${{ github.run_number }}
+
+            A C89 compiler that targets the MISA/Mnemonimov VM architecture.
+
+            ---
+
+            ## Usage
+
+            ```
+            misacc <input.c> [-o output.misa]
+            ```
+
+            | Argument | Description |
+            |---|---|
+            | `<input.c>` | C89 source file to compile (required) |
+            | `-o output.misa` | Write output to a file instead of stdout |
+
+            **Examples:**
+            ```
+            # Compile and write to a file
+            misacc program.c -o program.misa
+
+            # Compile and pipe output
+            misacc program.c > program.misa
+            ```
+
+            > On Linux/macOS the binary may need to be made executable first:
+            > ```
+            > chmod +x misacc-linux   # or misacc-macos
+            > ```
+
+            ---
+
+            ## Compiling from Source
+
+            **Requirements:** `clang`
+
+            **Using Make (Linux/macOS):**
+            ```sh
+            make
+            ```
+
+            **Manual (Linux/macOS):**
+            ```sh
+            clang -Iinclude -Wall \
+              src/token.c src/ast.c src/type.c src/symtab.c \
+              src/lexer.c src/parser.c src/sema.c src/codegen.c src/main.c \
+              -o misacc
+            ```
+
+            **Manual (Windows):**
+            ```bat
+            clang -Iinclude -D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE -Wall ^
+              src/token.c src/ast.c src/type.c src/symtab.c ^
+              src/lexer.c src/parser.c src/sema.c src/codegen.c src/main.c ^
+              -o misacc.exe
+            ```
+
+            ---
+
+            **Commit:** ${{ github.sha }}
+          files: |
+            artifacts/misacc-windows.exe
+            artifacts/misacc-linux
+            artifacts/misacc-macos
