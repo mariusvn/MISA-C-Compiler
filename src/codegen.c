@@ -377,7 +377,7 @@ static int cg_lvalue_addr(CodeGen *cg, AstNode *n, FrameLayout *fl) {
 			int off = fv ? fv->fp_offset : sym->fp_offset;
 			emit(cg, "add %s, fp, %d", rn, off);
 			emit(cg, "mov ea, %s", rn);
-			emit(cg, "lde u32t, %s, 0", rn); 
+			emit(cg, "lde u32t, %s, 0", rn);
 		} else {
 			FrameVar *fv = frame_find(fl, sym->name);
 			int off = fv ? fv->fp_offset : sym->fp_offset;
@@ -517,8 +517,8 @@ static int cg_expr(CodeGen *cg, AstNode *n, FrameLayout *fl) {
 			emit(cg, "tpa %s, %s", rn, fl2);
 			break;
 		}
-		if (sym->type && sym->type->kind == TY_ARRAY) {
-			
+		if (sym->type && (sym->type->kind == TY_ARRAY ||
+		                  (sym->type->kind == TY_POINTER && sym->is_global))) {
 			if (sym->is_global) {
 				emit(cg, "tpa %s, %s", rn, sym->asm_label);
 			} else {
